@@ -8,97 +8,202 @@ Current version works for NeoVim on:
 
 - macOS
 - Windows and WSL
-- Fcitx5 on Linux
-- Fcitx on Linux(only switch between inactive and active)
+- Linux
+  - Fcitx5
+  - Fcitx(only switch between inactive and active)
+  - IBus
 
 Other frameworks on Linux's support is welcome!
 
-## 1. Install binary
+## 1. Install and check binary
 
-For Windows and macOS user, please install executable file `im-select` first
+`im-select.nvim` use binary tools to switch IM, you need to:
+
+1. Install binary tools on different OS.
+2. Make sure the executable file in a path that NeoVim can read them.
+
+### 1.1 Windows / WSL
+
+#### Install
+
+Please install `im-select.exe` and put it into your `PATH`.
+
+Download URL: [im-select](https://github.com/daipeihust/im-select)
+(For `x64` platform, please download the `64-bit` version.)
+
+#### Check
+
+You can check if the `im-select` executable can be properly accessed from Neovim/Vim by running the following command from your Command Prompt:
+
+```bash
+# find the command
+$ where im-select.exe
+
+# Get current im name
+$ im-select.exe
+
+# Try to switch to English keyboard
+$ im-select.exe 1033
+```
+
+Or run shell command directly from NeoVim
+
+```bash
+:!where im-select.exe
+
+:!im-select.exe 1003
+```
+
+### 1.2 macOS
+
+#### Install
+
+Please install `im-select`
 
 Download URL: [im-select](https://github.com/daipeihust/im-select)
 
-For fcitx5 user, you need to install fcitx5
+#### Check
 
-Note: You need to put the executable file in a path that NeoVim can read from, and then you can find it in NeoVim by doing the following:
+Check installation in bash/zsh
 
+```bash
+# find binary
+$ which im-select
+
+# Get current im name
+$ im-select
+
+# Try to switch to English keyboard
+$ im-select com.apple.keylayout.ABC
 ```
-# Windows / WSL
-:!which im-select.exe
 
-# macOS
+Check in NeoVim
+
+```bash
 :!which im-select
-
-# Linux
-:!which fcitx5-remote
-:!which fcitx-remote
 ```
 
-## 2. Install plugin
+### 1.3 Linux
 
-Lazy
+#### Install
+
+Please install and config one of Input Methods: Fcitx / Fcitx5 / IBus
+
+#### Check
+
+Check installation in bash/zsh
+
+**> Fcitx**
+
+```bash
+# find
+$ which fcitx-remote
+
+# activate IM
+$ fcitx-remote -o
+
+# inactivate IM
+$ fcitx-remote -c
+```
+
+**> Fcitx5**
+
+```bash
+# find
+$ which fcitx5-remote
+
+# Get current im name
+$ fcitx5-remote -n
+
+# Try to switch to English keyboard
+$ fcitx5-remote keyboard-us
+```
+
+**> IBus**
+
+```bash
+# find
+$ which ibus
+
+# Get current im name
+$ ibus engine
+
+# Try to switch to English keyboard
+$ ibus xkb:us::eng
+```
+
+Check in NeoVim
+
+```bash
+# find
+:!which fcitx
+:!which fcitx5
+:!which ibus
+```
+
+## 2. Install and setup this plugin
+
+A good-enough minimal config in Lazy.nvim
 
 ```lua
-'keaising/im-select.nvim'
-```
-
-Packer
-
-```lua
-use 'keaising/im-select.nvim'
-```
-
-Plug
-
-```vim
-Plug 'keaising/im-select.nvim'
-```
-
-## 3. Config
-
-### Setup
-
-Setup is a must, and it works well enough with the default config:
-
-```lua
-require('im_select').setup()
-```
-
-### Default config
-
-```lua
-require('im_select').setup {
-
-    -- IM will be set to `default_im_select` in `normal` mode
-    -- For Windows/WSL, default: "1033", aka: English US Keyboard
-    -- For macOS, default: "com.apple.keylayout.ABC", aka: US
-    -- For Linux, default: "keyboard-us" for Fcitx5 or "1" for Fcitx
-    -- You can use `im-select` or `fcitx5-remote -n` to get the IM's name you preferred
-    default_im_select  = "com.apple.keylayout.ABC",
-
-    -- Can be binary's name or binary's full path,
-    -- e.g. 'im-select' or '/usr/local/bin/im-select'
-    -- For Windows/WSL, default: "im-select.exe"
-    -- For macOS, default: "im-select"
-    -- For Linux, default: "fcitx5-remote" or "fcitx-remote"
-    default_command = 'im-select.exe'
-
-    -- Restore the default input method state when the following events are triggered
-    set_default_events = { "VimEnter", "FocusGained", "InsertLeave", "CmdlineLeave" },
-
-    -- Restore the previous used input method state when the following events are triggered
-    -- if you don't want to restore previous used im in Insert mode,
-    -- e.g. deprecated `disable_auto_restore = 1`, just let it empty `set_previous_events = {}`
-    set_previous_events = { "InsertEnter" },
-
-    -- Show notification about how to install executable binary when binary is missing
-    keep_quiet_on_no_binary = false
+{
+    "keaising/im-select.nvim",
+    config = function()
+        require("im_select").setup({})
+    end,
 }
 ```
 
-### BREAK CHANGE
+Options with its default values
 
-So sorry for importing a break change
+```lua
+{
+    "keaising/im-select.nvim",
+    config = function()
+        require('im_select').setup({
+            -- IM will be set to `default_im_select` in `normal` mode
+            -- For Windows/WSL, default: "1033", aka: English US Keyboard
+            -- For macOS, default: "com.apple.keylayout.ABC", aka: US
+            -- For Linux, default:
+            --               "keyboard-us" for Fcitx5
+            --               "1" for Fcitx
+            --               "xkb:us::eng" for ibus
+            -- You can use `im-select` or `fcitx5-remote -n` to get the IM's name
+            default_im_select  = "com.apple.keylayout.ABC",
 
-- 2023.05.05: `disable_auto_restore` is deprecated, it can be replaced with more powerful `set_previous_events`, it will be removed in 2023.06
+            -- Can be binary's name or binary's full path,
+            -- e.g. 'im-select' or '/usr/local/bin/im-select'
+            -- For Windows/WSL, default: "im-select.exe"
+            -- For macOS, default: "im-select"
+            -- For Linux, default: "fcitx5-remote" or "fcitx-remote" or "ibus"
+            default_command = 'im-select.exe',
+
+            -- Restore the default input method state when the following events are triggered
+            set_default_events = { "VimEnter", "FocusGained", "InsertLeave", "CmdlineLeave" },
+
+            -- Restore the previous used input method state when the following events
+            -- are triggered, if you don't want to restore previous used im in Insert mode,
+            -- e.g. deprecated `disable_auto_restore = 1`, just let it empty
+            -- as `set_previous_events = {}`
+            set_previous_events = { "InsertEnter" },
+
+            -- Show notification about how to install executable binary when binary missed
+            keep_quiet_on_no_binary = false,
+
+            -- Async run `default_command` to switch IM or not
+            async_switch_im = true
+        })
+    end,
+}
+```
+
+## 3. Current Issue
+
+Currently, there're some issues when using the plugin inside Neovim on Windows and cannot be always reproduced:
+
+- https://github.com/keaising/im-select.nvim/issues/17
+- https://github.com/keaising/im-select.nvim/issues/16
+
+Please try to turn on/off the `async_switch_im` and see if it helps.
+
+Because I don't use Neovim on Windows, so if anyone would like to help debug and fix this issue, pull request is very welcome.

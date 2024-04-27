@@ -1,5 +1,7 @@
 local M = {}
 
+M.closed = false
+
 local function all_trim(s)
     return s:match("^%s*(.-)%s*$")
 end
@@ -23,10 +25,13 @@ local function is_supported()
         return true
     end
 
-    -- only support fcitx5 and fcitx
+    -- Support fcitx5, fcitx and ibus in Linux
     -- other frameworks are not support yet, PR welcome
-    if vim.fn.executable("fcitx5-remote") or vim.fn.executable("fcitx-remote") then
-        return true
+    local ims = { "fcitx5-remote", "fcitx-remote", "ibus" }
+    for _, im in ipairs(ims) do
+        if vim.fn.executable(im) then
+            return true
+        end
     end
 end
 
@@ -43,6 +48,8 @@ local C = {
     set_previous_events = { "InsertEnter" },
 
     keep_quiet_on_no_binary = false,
+
+    async_switch_im = true,
 }
 
 local function set_default_config()
@@ -64,6 +71,11 @@ local function set_default_config()
             -- fcitx5-remote -s keyboard-us
             C.default_command = "fcitx5-remote"
             C.default_method_selected = "keyboard-us"
+        elseif vim.fn.executable("ibus") == 1 then
+            -- ibus engine xkb:us::eng
+            -- ibus engine rime
+            C.default_command = "ibus"
+            C.default_method_selected = "xkb:us::eng"
         end
     end
 end
@@ -98,20 +110,28 @@ local function set_opts(opts)
     if opts.keep_quiet_on_no_binary then
         C.keep_quiet_on_no_binary = true
     end
-end
 
-local function get_current_select(cmd)
-    -- fcitx5 has its own parameters
-    if cmd:find("fcitx5-remote", 1, true) ~= nil then
-        return all_trim(vim.fn.system({ cmd, "-n" }))
-    else
-        return all_trim(vim.fn.system({ cmd }))
+    if opts.async_switch_im ~= nil and opts.async_switch_im == false then
+        C.async_switch_im = false
     end
 end
 
+local function get_current_select(cmd)
+    local command = {}
+    if cmd:find("fcitx5-remote", 1, true) ~= nil then
+        command = { cmd, "-n" }
+    elseif cmd:find("ibus", 1, true) ~= nil then
+        command = { cmd, "engine" }
+    else
+        command = { cmd }
+    end
+    return all_trim(vim.fn.system(command))
+end
+
 local function change_im_select(cmd, method)
+    local args = {}
     if cmd:find("fcitx5-remote", 1, true) then
-        return vim.fn.system({ cmd, "-s", method })
+        args = { "-s", method }
     elseif cmd:find("fcitx-remote", 1, true) then
         -- limited support for fcitx, can only switch for inactive and active
         if method == "1" then
@@ -119,9 +139,32 @@ local function change_im_select(cmd, method)
         else
             method = "-o"
         end
-        return vim.fn.system({ cmd, method })
+        args = { method }
+    elseif cmd:find("ibus", 1, true) then
+        args = { "engine", method }
     else
-        return vim.fn.system({ cmd, method })
+        args = { method }
+    end
+
+    local handle
+    handle, _ = vim.loop.spawn(
+        cmd,
+        { args = args, detach = true },
+        vim.schedule_wrap(function(_, _)
+            if handle and not handle:is_closing() then
+                handle:close()
+            end
+            M.closed = true
+        end)
+    )
+    if not handle then
+        vim.api.nvim_err_writeln([[[im-select]: Failed to spawn process for ]] .. cmd)
+    end
+
+    if not C.async_switch_im then
+        vim.wait(5000, function()
+            return M.closed
+        end, 200)
     end
 end
 
@@ -153,9 +196,7 @@ M.setup = function(opts)
 
     if vim.fn.executable(C.default_command) ~= 1 then
         if not C.keep_quiet_on_no_binary then
-            vim.api.nvim_err_writeln(
-                [[[im-select]: please install `im-select` binary first, repo url: https://github.com/daipeihust/im-select]]
-            )
+            vim.api.nvim_err_writeln([[[im-select]: binary tools missed, please follow installation manual in README]])
         end
         return
     end
