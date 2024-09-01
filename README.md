@@ -129,7 +129,7 @@ $ which ibus
 $ ibus engine
 
 # Try to switch to English keyboard
-$ ibus xkb:us::eng
+$ ibus engine xkb:us::eng
 ```
 
 Check in NeoVim
@@ -171,12 +171,13 @@ Options with its default values
             -- You can use `im-select` or `fcitx5-remote -n` to get the IM's name
             default_im_select  = "com.apple.keylayout.ABC",
 
-            -- Can be binary's name or binary's full path,
-            -- e.g. 'im-select' or '/usr/local/bin/im-select'
+            -- Can be binary's name, binary's full path, or a table, e.g. 'im-select',
+            -- '/usr/local/bin/im-select' for binary without extra arguments,
+            -- or { "AIMSwitcher.exe", "--imm" } for binary need extra arguments to work.
             -- For Windows/WSL, default: "im-select.exe"
             -- For macOS, default: "im-select"
             -- For Linux, default: "fcitx5-remote" or "fcitx-remote" or "ibus"
-            default_command = 'im-select.exe',
+            default_command = "im-select.exe",
 
             -- Restore the default input method state when the following events are triggered
             set_default_events = { "VimEnter", "FocusGained", "InsertLeave", "CmdlineLeave" },

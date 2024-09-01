@@ -38,7 +38,7 @@ end
 -- local config
 local C = {
     -- im-select binary's name, or the binary's full path
-    default_command = "im-select.exe",
+    default_command = { "im-select.exe" },
     -- default input method in normal mode.
     default_method_selected = "1033",
 
@@ -55,26 +55,26 @@ local C = {
 local function set_default_config()
     local current_os = determine_os()
     if current_os == "macOS" then
-        C.default_command = "im-select"
+        C.default_command = { "im-select" }
         C.default_method_selected = "com.apple.keylayout.ABC"
     elseif current_os == "Windows" or current_os == "WSL" then
         -- WSL share same config with Windows
-        C.default_command = "im-select.exe"
+        C.default_command = { "im-select.exe" }
         C.default_method_selected = "1033"
     else
         -- 0 for close, 1 for inactive, 2 for active
-        C.default_command = "fcitx-remote"
+        C.default_command = { "fcitx-remote" }
         C.default_method_selected = "1"
         if vim.fn.executable("fcitx5-remote") == 1 then
             -- fcitx5-remote -n: rime/keyboard-us
             -- fcitx5-remote -s rime
             -- fcitx5-remote -s keyboard-us
-            C.default_command = "fcitx5-remote"
+            C.default_command = { "fcitx5-remote" }
             C.default_method_selected = "keyboard-us"
         elseif vim.fn.executable("ibus") == 1 then
             -- ibus engine xkb:us::eng
             -- ibus engine rime
-            C.default_command = "ibus"
+            C.default_command = { "ibus", "engine" }
             C.default_method_selected = "xkb:us::eng"
         end
     end
@@ -90,7 +90,13 @@ local function set_opts(opts)
     end
 
     if opts.default_command ~= nil then
-        C.default_command = opts.default_command
+        if type(opts.default_command) == "string" then
+            C.default_command = { opts.default_command }
+        elseif type(opts.default_command) == "table" then
+            C.default_command = opts.default_command
+        else
+            print("[im-select]: wrong config for default_command")
+        end
     end
 
     if opts.set_default_events ~= nil and type(opts.set_default_events) == "table" then
@@ -117,38 +123,31 @@ local function set_opts(opts)
 end
 
 local function get_current_select(cmd)
-    local command = {}
-    if cmd:find("fcitx5-remote", 1, true) ~= nil then
-        command = { cmd, "-n" }
-    elseif cmd:find("ibus", 1, true) ~= nil then
-        command = { cmd, "engine" }
-    else
-        command = { cmd }
+    local command = cmd
+    if cmd[1]:find("fcitx5-remote", 1, true) ~= nil then
+        command = { "fcitx5-remote", "-n" }
     end
     return all_trim(vim.fn.system(command))
 end
 
 local function change_im_select(cmd, method)
-    local args = {}
-    if cmd:find("fcitx5-remote", 1, true) then
-        args = { "-s", method }
-    elseif cmd:find("fcitx-remote", 1, true) then
+    local args = { unpack(cmd, 2) }
+
+    if cmd[1]:find("fcitx5-remote", 1, true) then
+        table.insert(args, "-s")
+    elseif cmd[1]:find("fcitx-remote", 1, true) then
         -- limited support for fcitx, can only switch for inactive and active
         if method == "1" then
             method = "-c"
         else
             method = "-o"
         end
-        args = { method }
-    elseif cmd:find("ibus", 1, true) then
-        args = { "engine", method }
-    else
-        args = { method }
     end
+    table.insert(args, method)
 
     local handle
     handle, _ = vim.loop.spawn(
-        cmd,
+        cmd[1],
         { args = args, detach = true },
         vim.schedule_wrap(function(_, _)
             if handle and not handle:is_closing() then
@@ -194,7 +193,7 @@ M.setup = function(opts)
     set_default_config()
     set_opts(opts)
 
-    if vim.fn.executable(C.default_command) ~= 1 then
+    if vim.fn.executable(C.default_command[1]) ~= 1 then
         if not C.keep_quiet_on_no_binary then
             vim.api.nvim_err_writeln([[[im-select]: binary tools missed, please follow installation manual in README]])
         end
